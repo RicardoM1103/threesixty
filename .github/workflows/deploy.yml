@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  DATABASE_URL: "postgres://postgres:postgres@localhost/threesixty"
+  SECRET_KEY: super-secret-key
+  DEBUG: "True"
+
+jobs:
+  tests:
+    runs-on: ubuntu-20.04
+    services:
+      postgresql:
+        image: postgres:13.5
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: threesixty
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4.0.0
+
+      - name: Install poetry
+        run: pipx install poetry
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11.2
+          cache: 'poetry'
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
+
+      - name: run linters via pre-commit
+        run: |
+          poetry run pre-commit run --all --show-diff-on-failure --color=always
+
+      - name: collectstatic
+        run: poetry run python manage.py collectstatic --no-input
+
+      - name: tests
+        run: poetry run coverage run --source threesixty -m pytest
+
+      - name: codecov
+        run: poetry run codecov
